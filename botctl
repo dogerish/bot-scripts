@@ -1,0 +1,70 @@
+#! /bin/bash
+# scripts/functions for controlling a bot and its logs
+
+# config (defaults)
+# function defining default action for running a bot
+RUNBOT ()
+{
+	echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
+}
+# if 0, the bot directory name will make the name of the dir on google drive. if 1, LOGDIR is used.
+AUTONAME=1
+# preface the google drive dir with this
+GDRIVEPREFIX="bot-logs/"
+# name of the local log directory
+LOGDIR="logs"
+# file for stdout / logs
+LOG="$LOGDIR/log.txt"
+# file for stderr / errors
+ERR="$LOGDIR/err.txt"
+DATELINE="
+----- $(date) -----
+"
+
+
+[[ -n "$2" ]] && cd "$2"
+
+# clears the log files
+clearlogs ()
+{
+	# write date to the files
+	echo "$DATELINE" | tee "$LOG" "$ERR"
+}
+
+(( AUTONAME )) && target="$(basename "$PWD")" || target="$LOGDIR"
+# starts watches on the log folder and uploads the file when a log file is modified
+logwatch ()
+{
+	{
+		inotifywait -rme modify "$LOGDIR" --format "%w%f" | while read file
+			do rclone copy "$file" "gdrive:${GDRIVEPREFIX}${target}/"
+		done
+	} &
+}
+
+# uploads logs to google drive using rclone
+upload ()
+{
+	rclone sync "$LOGDIR" "gdrive:${GDRIVEPREFIX}${target}"
+}
+
+
+# starts the bot
+run ()
+{
+	# print current directory and give user chance to abort if in wrong dir
+	pwd && sleep 5
+	mkdir -p "$LOGDIR"
+	# add date to logs
+	echo "$DATELINE" | tee -a "$LOG" "$ERR"
+	RUNBOT >> "$LOG" 2>> "$ERR" &
+}
+
+
+SCRIPTS="clearlogs|logwatch|upload|run"
+HELP="Usage: $(basename "$0") SCRIPT [BOTDIR]
+
+Where SCRIPT is $SCRIPTS
+and BOTDIR is the directory of the bot to control (default = working directory)"
+# if the script is accepted, run it
+[[ "$1" == +($SCRIPTS) ]] && "$1" || echo -e "$HELP"
