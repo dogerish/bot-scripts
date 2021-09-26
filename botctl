@@ -1,63 +1,63 @@
 #! /bin/bash
 # scripts/functions for controlling a bot and its logs
 
-# config (defaults)
+# BEGIN CONFIG
 # function defining how to run a bot
 RUNBOT ()
 {
 	echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
 }
-# if 0, the bot directory name will make the name of the dir on google drive. if 1, LOGDIR is used.
+# if 1, the bot directory name will make the base name for google drive. if 0, LOGDIR is used.
 AUTONAME=1
-# preface the google drive dir with this
-GDRIVEPREFIX="bot-logs/"
-# name of the local log directory
+# this is put before the base name for the google drive folder
+GDPREFIX="bot-logs/"
+# same as above, but is put at the end
+GDSUFFIX=""
+# name of the bot's local log directory
 LOGDIR="logs"
-# file for stdout / logs
+# file for stdout / logs (in LOGDIR)
 LOG="log.txt"
-# file for stderr / errors
+# for stderr / errors
 ERR="err.txt"
-DATELINE="
+DATESTMT="
 ----- $(date) -----
 "
+# END CONFIG
 
-# cd to bot dir
-[[ -n "$2" ]] && cd "$2"
+# enter the bot's directory
+if [[ -d "${2:-./}" ]]
+then
+	cd "$2"
+else
+	printf "%q is not a directory.\n" "$2"
+	exit 1
+fi
 
 # source a file if it exists
 sfe () { [[ -e "$1" ]] && source "$1"; }
 # source other config files
 sfe "$HOME/.config/botctl"
 sfe ".botctl"
-
 LOG="$LOGDIR/$LOG"
 ERR="$LOGDIR/$ERR"
 
 
-# clears the log files
-clearlogs ()
-{
-	# write date to the files
-	echo "$DATELINE" | tee "$LOG" "$ERR"
-}
+# clears the log files by writing DATESTMT to them
+clearlogs () { echo "$DATESTMT" | tee "$LOG" "$ERR"; }
 
 (( AUTONAME )) && target="$(basename "$PWD")" || target="$LOGDIR"
+target="gdrive:${GDPREFIX}${target}${GDSUFFIX}"
 # starts watches on the log folder and uploads the file when a log file is modified
 logwatch ()
 {
 	{
 		inotifywait -rme modify "$LOGDIR" --format "%w%f" | while read file
-			do rclone copy "$file" "gdrive:${GDRIVEPREFIX}${target}/"
+			do rclone copy "$file" "$target/"
 		done
 	} &
 }
-
 # uploads logs to google drive using rclone
-upload ()
-{
-	rclone sync "$LOGDIR" "gdrive:${GDRIVEPREFIX}${target}"
-}
-
+upload () { rclone sync "$LOGDIR" "$target"; }
 
 # starts the bot
 run ()
@@ -66,7 +66,7 @@ run ()
 	pwd && sleep 5
 	mkdir -p "$LOGDIR"
 	# add date to logs
-	echo "$DATELINE" | tee -a "$LOG" "$ERR"
+	echo "$DATESTMT" | tee -a "$LOG" "$ERR"
 	RUNBOT >> "$LOG" 2>> "$ERR" &
 }
 
