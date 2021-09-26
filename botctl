@@ -91,5 +91,5 @@ for bot in "${bots[@]}"
 do
 	reconfig "$bot"
 	"$1"
-	cd -
+	cd - > /dev/null
 done
