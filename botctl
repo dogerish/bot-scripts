@@ -1,52 +1,59 @@
 #! /bin/bash
 # scripts/functions for controlling a bot and its logs
 
-# BEGIN CONFIG
-# function defining how to run a bot
-RUNBOT ()
+# load config for a bot ($1)
+reconfig ()
 {
-	echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
+	# BEGIN CONFIG
+	# function defining how to run a bot
+	RUNBOT ()
+	{
+		echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
+	}
+	# if 1, the bot directory name will make the base name for google drive. if 0, LOGDIR is used.
+	AUTONAME=1
+	# this is put before the base name for the google drive folder
+	GDPREFIX="bot-logs/"
+	# same as above, but is put at the end
+	GDSUFFIX=""
+	# name of the bot's local log directory
+	LOGDIR="logs"
+	# file for stdout / logs (in LOGDIR)
+	LOG="log.txt"
+	# for stderr / errors
+	ERR="err.txt"
+	DATESTMT="
+	----- $(date) -----
+	"
+	# END CONFIG
+
+	# enter the bot's directory
+	botdir="$1"
+	if [[ -d "$botdir" ]]
+	then
+		cd "$botdir"
+		echo "-> $PWD"
+	else
+		printf "%q is not a directory.\n" "$botdir"
+		exit 1
+	fi
+
+	# source a file if it exists
+	sfe () { [[ -e "$1" ]] && source "$1"; }
+	# source other config files
+	sfe "$HOME/.config/botctl"
+	sfe ".botctl"
+	LOG="$LOGDIR/$LOG"
+	ERR="$LOGDIR/$ERR"
+
+
+	(( AUTONAME )) && target="$(basename "$PWD")" || target="$LOGDIR"
+	target="gdrive:${GDPREFIX}${target}${GDSUFFIX}"
 }
-# if 1, the bot directory name will make the base name for google drive. if 0, LOGDIR is used.
-AUTONAME=1
-# this is put before the base name for the google drive folder
-GDPREFIX="bot-logs/"
-# same as above, but is put at the end
-GDSUFFIX=""
-# name of the bot's local log directory
-LOGDIR="logs"
-# file for stdout / logs (in LOGDIR)
-LOG="log.txt"
-# for stderr / errors
-ERR="err.txt"
-DATESTMT="
------ $(date) -----
-"
-# END CONFIG
-
-# enter the bot's directory
-if [[ -d "${2:-./}" ]]
-then
-	cd "$2"
-else
-	printf "%q is not a directory.\n" "$2"
-	exit 1
-fi
-
-# source a file if it exists
-sfe () { [[ -e "$1" ]] && source "$1"; }
-# source other config files
-sfe "$HOME/.config/botctl"
-sfe ".botctl"
-LOG="$LOGDIR/$LOG"
-ERR="$LOGDIR/$ERR"
-
 
 # clears the log files by writing DATESTMT to them
 clearlogs () { echo "$DATESTMT" | tee "$LOG" "$ERR"; }
 
-(( AUTONAME )) && target="$(basename "$PWD")" || target="$LOGDIR"
-target="gdrive:${GDPREFIX}${target}${GDSUFFIX}"
 # starts watches on the log folder and uploads the file when a log file is modified
 logwatch ()
 {
@@ -72,9 +79,16 @@ run ()
 
 
 SCRIPTS="clearlogs|logwatch|upload|run"
-HELP="Usage: $(basename "$0") SCRIPT [BOTDIR]
+HELP="Usage: $(basename "$0") SCRIPT [BOTDIR...]
 
 Where SCRIPT is $SCRIPTS
-and BOTDIR is the directory of the bot to control (default = working directory)"
-# if the script is accepted, run it
-[[ "$1" == +($SCRIPTS) ]] && "$1" || echo -e "$HELP"
+and BOTDIRS are the directories of the bots to control (default = working directory)"
+# if the script is accepted, run it for each of the bots (arguments 2 to infinity)
+if [[ "$1" != +($SCRIPTS) ]]; then echo -e "$HELP"; exit 1; fi
+bots=("${@:2}")
+(( ! ${#bots[@]} )) && bots=(./)
+for bot in "${bots[@]}"
+do
+	reconfig "$bot"
+	"$1"
+done
