@@ -2,7 +2,7 @@
 # scripts/functions for controlling a bot and its logs
 
 # config (defaults)
-# function defining default action for running a bot
+# function defining how to run a bot
 RUNBOT ()
 {
 	echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
@@ -14,15 +14,25 @@ GDRIVEPREFIX="bot-logs/"
 # name of the local log directory
 LOGDIR="logs"
 # file for stdout / logs
-LOG="$LOGDIR/log.txt"
+LOG="log.txt"
 # file for stderr / errors
-ERR="$LOGDIR/err.txt"
+ERR="err.txt"
 DATELINE="
 ----- $(date) -----
 "
 
-
+# cd to bot dir
 [[ -n "$2" ]] && cd "$2"
+
+# source a file if it exists
+sfe () { [[ -e "$1" ]] && source "$1"; }
+# source other config files
+sfe "$HOME/.config/botctl"
+sfe ".botctl"
+
+LOG="$LOGDIR/$LOG"
+ERR="$LOGDIR/$ERR"
+
 
 # clears the log files
 clearlogs ()
