@@ -1,5 +1,6 @@
 #! /bin/bash
 # scripts/functions for controlling a bot and its logs
+shopt -s extglob
 
 # load config for a bot ($1)
 reconfig ()
