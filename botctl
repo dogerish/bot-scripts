@@ -5,11 +5,28 @@ shopt -s extglob
 # load config for a bot ($1)
 reconfig ()
 {
+	# enter the bot's directory
+	botdir="$1"
+	if [[ -d "$botdir" ]]
+	then
+		cd "$botdir"
+		echo "-> $PWD"
+		botdir="$PWD" # get full path
+	else
+		printf "%q is not a directory.\n" "$botdir"
+		exit 2
+	fi
+
 	# BEGIN CONFIG
 	# function defining how to run a bot
 	RUNBOT ()
 	{
+		for f in ./@(index|main)*
+		do
+			[[ -x "$f" ]] && exec "$f"
+		done
 		echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
+		exit 1
 	}
 	# if 1, the bot directory name will make the base name for google drive. if 0, LOGDIR is used.
 	AUTONAME=1
@@ -25,18 +42,6 @@ reconfig ()
 	ERR="err.txt"
 	DATESTMT=$'\n\t----- '$(date)$' -----\n'
 	# END CONFIG
-
-	# enter the bot's directory
-	botdir="$1"
-	if [[ -d "$botdir" ]]
-	then
-		cd "$botdir"
-		echo "-> $PWD"
-		botdir="$PWD" # get full path
-	else
-		printf "%q is not a directory.\n" "$botdir"
-		exit 2
-	fi
 
 	# source a file if it exists
 	sfe () { [[ -e "$1" ]] && source "$1"; cd "$botdir"; }
