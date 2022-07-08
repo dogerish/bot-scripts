@@ -34,13 +34,14 @@ reconfig ()
 	then
 		cd "$botdir"
 		echo "-> $PWD"
+		botdir="$PWD" # get full path
 	else
 		printf "%q is not a directory.\n" "$botdir"
 		exit 1
 	fi
 
 	# source a file if it exists
-	sfe () { [[ -e "$1" ]] && source "$1"; }
+	sfe () { [[ -e "$1" ]] && source "$1"; cd "$botdir"; }
 	# source other config files
 	sfe "$HOME/.config/botctl"
 	sfe ".botctl"
@@ -87,10 +88,11 @@ and BOTDIRS are the directories of the bots to control (default = working direct
 # if the script is accepted, run it for each of the bots (arguments 2 to infinity)
 if [[ "$1" != +($SCRIPTS) ]]; then echo -e "$HELP"; exit 1; fi
 bots=("${@:2}")
-(( ! ${#bots[@]} )) && bots=(./)
+(( ${#bots[@]} )) || bots=(./)
+launchdir="$PWD"
 for bot in "${bots[@]}"
 do
 	reconfig "$bot"
 	"$1"
-	cd - > /dev/null
+	cd "$launchdir"
 done
