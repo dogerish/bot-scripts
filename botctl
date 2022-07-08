@@ -84,7 +84,7 @@ HELP="Usage: $(basename "$0") SCRIPT [BOTDIR...]
 Where SCRIPT is $SCRIPTS
 and BOTDIRS are the directories of the bots to control (default = working directory)"
 # if the script is accepted, run it for each of the bots (arguments 2 to infinity)
-if [[ "$1" != +($SCRIPTS) ]]; then echo -e "$HELP"; exit 1; fi
+if [[ "$1" != @($SCRIPTS) ]]; then echo -e "$HELP"; exit 1; fi
 bots=("${@:2}")
 (( ${#bots[@]} )) || bots=(./)
 launchdir="$PWD"
