@@ -23,9 +23,7 @@ reconfig ()
 	LOG="log.txt"
 	# for stderr / errors
 	ERR="err.txt"
-	DATESTMT="
-	----- $(date) -----
-	"
+	DATESTMT=$'\n\t----- '$(date)$' -----\n'
 	# END CONFIG
 
 	# enter the bot's directory
@@ -37,7 +35,7 @@ reconfig ()
 		botdir="$PWD" # get full path
 	else
 		printf "%q is not a directory.\n" "$botdir"
-		exit 1
+		exit 2
 	fi
 
 	# source a file if it exists
