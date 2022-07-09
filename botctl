@@ -2,6 +2,22 @@
 # scripts/functions for controlling a bot and its logs
 shopt -s extglob
 
+MYNAME="$(basename $0)"
+
+# sends a slack message using $1 as the webhook and $2 as the message content
+send_slack_message () {
+	(( ${#1} == 0 )) && return 1
+	# protect webhook secret by putting it in a curl config file
+	option_file=`mktemp`
+	chmod 600 $option_file
+	cat > $option_file <<< "url = \"$1\""
+	curl \
+		-K $option_file \
+		-X POST -H 'Content-type: application/json' \
+		--data '{ "text": "'"$2"'" }' &>/dev/null
+	rm $option_file
+}
+
 # load config for a bot ($1)
 reconfig ()
 {
@@ -18,29 +34,44 @@ reconfig ()
 	fi
 
 	# BEGIN CONFIG
-	# function defining how to run a bot
-	RUNBOT ()
-	{
-		for f in ./@(index|main)*
-		do
-			[[ -x "$f" ]] && exec "$f"
-		done
-		echo "$(basename "$0"): I don't know how to run '$(basename "$PWD")'" >&2
-		exit 1
-	}
-	# if 1, the bot directory name will make the base name for google drive. if 0, LOGDIR is used.
+	# name of bot
+	BOTNAME="$(basename $PWD)"
+	# if 1, the bot name will make the base name for google drive. if 0, LOGDIR 
+	# is used.
 	AUTONAME=1
 	# this is put before the base name for the google drive folder
 	GDPREFIX="bot-logs/"
 	# same as above, but is put at the end
 	GDSUFFIX=""
+	# slack webhook
+	SLACKHOOOK=""
 	# name of the bot's local log directory
 	LOGDIR="logs"
 	# file for stdout / logs (in LOGDIR)
 	LOG="log.txt"
 	# for stderr / errors
 	ERR="err.txt"
-	DATESTMT=$'\n\t----- '$(date)$' -----\n'
+	DATESTMT=$'\n\t----- '"$(date)"$' -----\n'
+	# function defining how to run a bot
+	RUNBOT ()
+	{
+		for f in ./@(index|main)*
+		do
+			[[ -x "$f" ]] || continue
+			if (( "${#SLACKHOOK}" > 0 ))
+			then
+				"$f" || send_slack_message "$SLACKHOOK" \
+					"$MYNAME: $BOTNAME exited with code $?"
+				exit 2
+			else
+				exec "$f"
+			fi
+		done
+		msg="$MYNAME: I don't know how to run '$BOTNAME'" 
+		echo "$msg" >&2
+		send_slack_message "$SLACKHOOK" "$msg"
+		exit 1
+	}
 	# END CONFIG
 
 	# source a file if it exists
@@ -52,7 +83,7 @@ reconfig ()
 	ERR="$LOGDIR/$ERR"
 
 
-	(( AUTONAME )) && target="$(basename "$PWD")" || target="$LOGDIR"
+	(( AUTONAME )) && target="${BOTNAME}" || target="$LOGDIR"
 	target="gdrive:${GDPREFIX}${target}${GDSUFFIX}"
 }
 
@@ -84,7 +115,7 @@ run ()
 
 
 SCRIPTS="clearlogs|logwatch|upload|run"
-HELP="Usage: $(basename "$0") SCRIPT [BOTDIR...]
+HELP="Usage: ${MYNAME} SCRIPT [BOTDIR...]
 
 Where SCRIPT is $SCRIPTS
 and BOTDIRS are the directories of the bots to control (default = working directory)"
